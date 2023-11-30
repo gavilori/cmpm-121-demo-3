@@ -55,10 +55,20 @@ statusPanel.innerHTML = "No points yet...";
 
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 
-interface Coin {
+class Coin {
   i: number;
   j: number;
   serial: number;
+
+  constructor(i: number, j: number, serial: number) {
+    this.i = i;
+    this.j = j;
+    this.serial = serial;
+  }
+
+  toString(): string {
+    return `coin (${this.i},${this.j}):${this.serial}`;
+  }
 }
 
 const playerCoins: Coin[] = [];
@@ -75,57 +85,91 @@ function makePit(i: number, j: number) {
   const coins: Coin[] = [];
 
   for (let x = 0; x < value; x++) {
-    coins.push({ i: i, j: j, serial: serialNumber });
+    const newCoin = new Coin(i, j, serialNumber);
+    coins.push(newCoin);
     serialNumber += 1;
   }
 
-  pit.bindPopup(() => {
-    const container = document.createElement("div");
+  pit.bindPopup(
+    () => {
+      const container = document.createElement("div");
 
-    container.innerHTML += `
-                <div>There is a pit here at "${i},${j}". It has <span id="value">${value}</span> coins.</div>
-                <button id="collect">collect</button> <button id="deposit">deposit</button>`;
+      const coinList = document.createElement("div");
 
-    coins.forEach((coin) => {
-      container.innerHTML += `<button id="coin${coin.serial}">coin (${i},${j}):${coin.serial}</button>`;
+      coinList.style.overflowY = "scroll";
+      coinList.style.height = "200px";
 
-      const coinButton = container.querySelector<HTMLButtonElement>(
-        `#coin${coin.serial}`
-      )!;
+      container.innerHTML += `
+                <div>There is a pit here at "${i},${j}". It has <span id="value">${value}</span> coins.</div>`;
+      // container.innerHTML += `<button id="collect">collect</button> <button id="deposit">deposit</button>`;
 
-      coinButton.addEventListener("click", () => {
-        console.log(`coin (${i},${j}):${coin.serial} collected`);
-        playerCoins.push(coin);
-        value--;
-        points++;
-        statusPanel.innerHTML = `${points} coins accumulated`;
+      coins.forEach((coin) => {
+        const coinButton = document.createElement("button");
+        coinButton.innerHTML = `Coin (${coin.i}, ${coin.j}):${coin.serial}`;
+        coinList.append(coinButton);
+
+        coinButton.addEventListener("click", () => {
+          value--;
+          container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+            value.toString();
+
+          points++;
+          statusPanel.innerHTML = `${points} coins accumulated`;
+
+          playerCoins.push(coin);
+
+          coinButton.remove();
+
+          const index = coins.indexOf(coin);
+          if (index > -1) {
+            coins.splice(index, 1);
+          }
+        });
       });
-    });
+      container.append(coinList);
 
-    const collect = container.querySelector<HTMLButtonElement>("#collect")!;
-    collect.addEventListener("click", () => {
-      if (value > 0) {
-        value--;
-        points++;
-      }
-      container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-        value.toString();
-      statusPanel.innerHTML = `${points} points accumulated`;
-    });
+      const depositButton = document.createElement("button");
+      depositButton.innerHTML = "Deposit Coin";
+      depositButton.addEventListener("click", () => {
+        if (points > 0) {
+          value++;
+          container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+            value.toString();
 
-    const deposit = container.querySelector<HTMLButtonElement>("#deposit")!;
-    deposit.addEventListener("click", () => {
-      if (points > 0) {
-        value++;
-        points--;
-      }
-      container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-        value.toString();
-      statusPanel.innerHTML = `${points} coins accumulated`;
-    });
+          points--;
+          statusPanel.innerHTML = `${points} coins accumulated`;
 
-    return container;
-  });
+          const coin = playerCoins.pop()!;
+          coins.push(coin);
+        }
+      });
+      container.append(depositButton);
+
+      // const collect = container.querySelector<HTMLButtonElement>("#collect")!;
+      // collect.addEventListener("click", () => {
+      //   if (value > 0) {
+      //     value--;
+      //     points++;
+      //   }
+      //   container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+      //     value.toString();
+      //   statusPanel.innerHTML = `${points} points accumulated`;
+      // });
+
+      // const deposit = container.querySelector<HTMLButtonElement>("#deposit")!;
+      // deposit.addEventListener("click", () => {
+      //   if (points > 0) {
+      //     value++;
+      //     points--;
+      //   }
+      //   container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
+      //     value.toString();
+      //   statusPanel.innerHTML = `${points} coins accumulated`;
+      // });
+      return container;
+    },
+    { closeOnClick: false }
+  );
 
   pit.addTo(map);
 }
