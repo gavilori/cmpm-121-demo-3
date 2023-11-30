@@ -3,11 +3,25 @@ import "./style.css";
 import leaflet from "leaflet";
 import luck from "./luck";
 import "./leafletWorkaround";
+// import "./board.ts";
+// import { Board } from "./board.ts";
 
-const MERRILL_CLASSROOM = leaflet.latLng({
-  lat: 36.9995,
-  lng: -122.0533,
-});
+interface Cell {
+  readonly i: number;
+  readonly j: number;
+}
+
+const MERRILL_CLASSROOM: Cell = {
+  i: 369995,
+  j: -1220533,
+};
+
+function formatLocation(location: Cell) {
+  return leaflet.latLng({
+    lat: location.i * 0.0001,
+    lng: location.j * 0.0001,
+  });
+}
 
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
@@ -17,7 +31,7 @@ const PIT_SPAWN_PROBABILITY = 0.1;
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
 const map = leaflet.map(mapContainer, {
-  center: MERRILL_CLASSROOM,
+  center: formatLocation(MERRILL_CLASSROOM),
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -25,15 +39,17 @@ const map = leaflet.map(mapContainer, {
   scrollWheelZoom: false,
 });
 
+// const board = new Board(NEIGHBORHOOD_SIZE, GAMEPLAY_ZOOM_LEVEL);
+
 leaflet
   .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution:
-      '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      "&copy; <a href='http://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
   })
   .addTo(map);
 
-const playerMarker = leaflet.marker(MERRILL_CLASSROOM);
+const playerMarker = leaflet.marker(formatLocation(MERRILL_CLASSROOM));
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
@@ -54,12 +70,12 @@ statusPanel.innerHTML = "No points yet...";
 function makePit(i: number, j: number) {
   const bounds = leaflet.latLngBounds([
     [
-      MERRILL_CLASSROOM.lat + i * TILE_DEGREES,
-      MERRILL_CLASSROOM.lng + j * TILE_DEGREES,
+      formatLocation(MERRILL_CLASSROOM).lat + i * TILE_DEGREES,
+      formatLocation(MERRILL_CLASSROOM).lng + j * TILE_DEGREES,
     ],
     [
-      MERRILL_CLASSROOM.lat + (i + 1) * TILE_DEGREES,
-      MERRILL_CLASSROOM.lng + (j + 1) * TILE_DEGREES,
+      formatLocation(MERRILL_CLASSROOM).lat + (i + 1) * TILE_DEGREES,
+      formatLocation(MERRILL_CLASSROOM).lng + (j + 1) * TILE_DEGREES,
     ],
   ]);
 
@@ -89,6 +105,7 @@ function makePit(i: number, j: number) {
       }
       container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
         value.toString();
+      statusPanel.innerHTML = `${points} points accumulated`;
     });
     return container;
   });
