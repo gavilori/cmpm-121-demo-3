@@ -3,25 +3,18 @@ import "./style.css";
 import leaflet from "leaflet";
 import luck from "./luck";
 import "./leafletWorkaround";
-// import "./board.ts";
-// import { Board } from "./board.ts";
+import "./board.ts";
+import { Board } from "./board.ts";
 
-interface Cell {
-  readonly i: number;
-  readonly j: number;
-}
+// const MERRILL_CLASSROOM = {
+//   lat: 369995,
+//   lng: -1220533,
+// };
 
-const MERRILL_CLASSROOM: Cell = {
-  i: 369995,
-  j: -1220533,
+const NULL_ISLAND = {
+  lat: 0,
+  lng: 0,
 };
-
-function formatLocation(location: Cell) {
-  return leaflet.latLng({
-    lat: location.i * 0.0001,
-    lng: location.j * 0.0001,
-  });
-}
 
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
@@ -31,15 +24,13 @@ const PIT_SPAWN_PROBABILITY = 0.1;
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
 const map = leaflet.map(mapContainer, {
-  center: formatLocation(MERRILL_CLASSROOM),
+  center: leaflet.latLng(NULL_ISLAND),
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
   zoomControl: false,
   scrollWheelZoom: false,
 });
-
-// const board = new Board(NEIGHBORHOOD_SIZE, GAMEPLAY_ZOOM_LEVEL);
 
 leaflet
   .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -49,7 +40,7 @@ leaflet
   })
   .addTo(map);
 
-const playerMarker = leaflet.marker(formatLocation(MERRILL_CLASSROOM));
+const playerMarker = leaflet.marker(leaflet.latLng(NULL_ISLAND));
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
@@ -67,17 +58,11 @@ let points = 0;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
 
+const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
+
 function makePit(i: number, j: number) {
-  const bounds = leaflet.latLngBounds([
-    [
-      formatLocation(MERRILL_CLASSROOM).lat + i * TILE_DEGREES,
-      formatLocation(MERRILL_CLASSROOM).lng + j * TILE_DEGREES,
-    ],
-    [
-      formatLocation(MERRILL_CLASSROOM).lat + (i + 1) * TILE_DEGREES,
-      formatLocation(MERRILL_CLASSROOM).lng + (j + 1) * TILE_DEGREES,
-    ],
-  ]);
+  board.createCell({ i: i, j: j });
+  const bounds = board.getCellBounds({ i: i, j: j });
 
   const pit = leaflet.rectangle(bounds) as leaflet.Layer;
 
