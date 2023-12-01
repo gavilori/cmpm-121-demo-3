@@ -24,12 +24,6 @@ export class Board {
     return this.knownCells.get(key)!;
   }
 
-  createCell(cell: Cell): void {
-    const { i, j } = cell;
-    const key = [i, j].toString();
-    this.knownCells.set(key, cell);
-  }
-
   getCellForPoint(point: leaflet.LatLng): Cell {
     return this.getCanonicalCell({
       i: Math.floor(point.lat / this.tileWidth),

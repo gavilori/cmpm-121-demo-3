@@ -14,14 +14,16 @@ const NULL_ISLAND = {
 
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 8;
+const NEIGHBORHOOD_SIZE = 5;
 const PIT_SPAWN_PROBABILITY = 0.1;
 
 // Map Creation
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
+const STARTING_LOCATION = NULL_ISLAND;
+
 const map = leaflet.map(mapContainer, {
-  center: leaflet.latLng(NULL_ISLAND),
+  center: leaflet.latLng(STARTING_LOCATION),
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -37,8 +39,8 @@ leaflet
   })
   .addTo(map);
 
-const playerMarker = leaflet.marker(leaflet.latLng(NULL_ISLAND));
-playerMarker.bindTooltip("Current Position");
+const playerMarker = leaflet.marker(leaflet.latLng(STARTING_LOCATION));
+playerMarker.bindTooltip("Current Position: ");
 playerMarker.addTo(map);
 
 // Navigation Buttons
@@ -57,24 +59,28 @@ northButton.addEventListener("click", () => {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat + TILE_DEGREES, lng));
   map.setView(playerMarker.getLatLng());
+  updateBoard();
 });
 const southButton = document.querySelector("#south")!;
 southButton.addEventListener("click", () => {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat - TILE_DEGREES, lng));
   map.setView(playerMarker.getLatLng());
+  updateBoard();
 });
 const westButton = document.querySelector("#west")!;
 westButton.addEventListener("click", () => {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat, lng - TILE_DEGREES));
   map.setView(playerMarker.getLatLng());
+  updateBoard();
 });
 const eastButton = document.querySelector("#east")!;
 eastButton.addEventListener("click", () => {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat, lng + TILE_DEGREES));
   map.setView(playerMarker.getLatLng());
+  updateBoard();
 });
 
 // Status panel
@@ -96,12 +102,11 @@ function formatPlayerCoins(): void {
 let serialNumber = 0;
 
 function makePit(i: number, j: number) {
-  board.createCell({ i: i, j: j });
   const bounds = board.getCellBounds({ i: i, j: j });
 
   const pit = leaflet.rectangle(bounds) as leaflet.Layer;
 
-  let value = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+  let value = Math.floor(luck([i, j, "initialValue"].toString()) * 10);
   const coins: Coin[] = [];
 
   for (let x = 0; x < value; x++) {
@@ -119,8 +124,7 @@ function makePit(i: number, j: number) {
       coinList.style.overflowY = "scroll";
       coinList.style.height = "200px";
 
-      container.innerHTML += `
-                <div>There is a pit here at "${i},${j}". It has <span id="value">${value}</span> coins.</div>`;
+      container.innerHTML = `<div>Pit (${i},${j})<br>Currently has <span id="value">${value}</span> coins.</div>`;
 
       coins.forEach((coin) => {
         const coinButton = document.createElement("button");
@@ -170,11 +174,20 @@ function makePit(i: number, j: number) {
   pit.addTo(map);
 }
 
-// create cells
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    if (luck([i, j].toString()) < PIT_SPAWN_PROBABILITY) {
-      makePit(i, j);
+updateBoard();
+
+// update board (with cells)
+function updateBoard() {
+  const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
+  nearbyCells.forEach((cell) => {
+    if (luck([cell.i, cell.j].toString()) < PIT_SPAWN_PROBABILITY) {
+      makePit(cell.i, cell.j);
     }
-  }
+  });
+
+  playerMarker.setTooltipContent(
+    `Current Position: ${playerMarker.getLatLng().lat}, ${
+      playerMarker.getLatLng().lng
+    }`
+  );
 }
