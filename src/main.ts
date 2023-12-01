@@ -3,9 +3,10 @@ import "./style.css";
 import leaflet from "leaflet";
 import luck from "./luck";
 import "./leafletWorkaround";
-import "./board.ts";
 import { Board } from "./board.ts";
+import { Coin } from "./coin.ts";
 
+// Constants
 const NULL_ISLAND = {
   lat: 0,
   lng: 0,
@@ -16,6 +17,7 @@ const TILE_DEGREES = 1e-4;
 const NEIGHBORHOOD_SIZE = 8;
 const PIT_SPAWN_PROBABILITY = 0.1;
 
+// Map Creation
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
 const map = leaflet.map(mapContainer, {
@@ -36,9 +38,10 @@ leaflet
   .addTo(map);
 
 const playerMarker = leaflet.marker(leaflet.latLng(NULL_ISLAND));
-playerMarker.bindTooltip("That's you!");
+playerMarker.bindTooltip("Current Position");
 playerMarker.addTo(map);
 
+// Navigation Buttons
 const sensorButton = document.querySelector("#sensor")!;
 sensorButton.addEventListener("click", () => {
   navigator.geolocation.watchPosition((position) => {
@@ -49,35 +52,45 @@ sensorButton.addEventListener("click", () => {
   });
 });
 
+const northButton = document.querySelector("#north")!;
+northButton.addEventListener("click", () => {
+  const { lat, lng } = playerMarker.getLatLng();
+  playerMarker.setLatLng(leaflet.latLng(lat + TILE_DEGREES, lng));
+  map.setView(playerMarker.getLatLng());
+});
+const southButton = document.querySelector("#south")!;
+southButton.addEventListener("click", () => {
+  const { lat, lng } = playerMarker.getLatLng();
+  playerMarker.setLatLng(leaflet.latLng(lat - TILE_DEGREES, lng));
+  map.setView(playerMarker.getLatLng());
+});
+const westButton = document.querySelector("#west")!;
+westButton.addEventListener("click", () => {
+  const { lat, lng } = playerMarker.getLatLng();
+  playerMarker.setLatLng(leaflet.latLng(lat, lng - TILE_DEGREES));
+  map.setView(playerMarker.getLatLng());
+});
+const eastButton = document.querySelector("#east")!;
+eastButton.addEventListener("click", () => {
+  const { lat, lng } = playerMarker.getLatLng();
+  playerMarker.setLatLng(leaflet.latLng(lat, lng + TILE_DEGREES));
+  map.setView(playerMarker.getLatLng());
+});
+
+// Status panel
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins yet...";
 
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 
-class Coin {
-  i: number;
-  j: number;
-  serial: number;
-
-  constructor(i: number, j: number, serial: number) {
-    this.i = i;
-    this.j = j;
-    this.serial = serial;
-  }
-
-  toString(): string {
-    return `coin (${this.i},${this.j}):${this.serial}`;
-  }
-}
-
 const playerCoins: Coin[] = [];
 
-function formatCoins(): string {
+function formatPlayerCoins(): void {
   let output = "";
   playerCoins.forEach((coin) => {
     output += `Coin (${coin.i}, ${coin.j}):${coin.serial}, `;
   });
-  return output;
+  statusPanel.innerHTML = output;
 }
 
 let serialNumber = 0;
@@ -121,7 +134,7 @@ function makePit(i: number, j: number) {
             value.toString();
 
           playerCoins.push(coin);
-          statusPanel.innerHTML = formatCoins();
+          formatPlayerCoins();
 
           coinButton.remove();
 
@@ -144,7 +157,7 @@ function makePit(i: number, j: number) {
             value.toString();
 
           const coin = playerCoins.pop()!;
-          statusPanel.innerHTML = formatCoins();
+          formatPlayerCoins();
           coins.push(coin);
         }
       });
@@ -157,6 +170,7 @@ function makePit(i: number, j: number) {
   pit.addTo(map);
 }
 
+// create cells
 for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
   for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
     if (luck([i, j].toString()) < PIT_SPAWN_PROBABILITY) {
