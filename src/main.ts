@@ -177,6 +177,7 @@ function makePit(i: number, j: number) {
 updateBoard();
 
 // update board (with cells)
+// FIXME: new pits are always created, even if pit already exists
 function updateBoard() {
   const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
   nearbyCells.forEach((cell) => {
