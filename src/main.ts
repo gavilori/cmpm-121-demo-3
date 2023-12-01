@@ -49,9 +49,8 @@ sensorButton.addEventListener("click", () => {
   });
 });
 
-let points = 0;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
-statusPanel.innerHTML = "No points yet...";
+statusPanel.innerHTML = "No coins yet...";
 
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 
@@ -72,6 +71,14 @@ class Coin {
 }
 
 const playerCoins: Coin[] = [];
+
+function formatCoins(): string {
+  let output = "";
+  playerCoins.forEach((coin) => {
+    output += `Coin (${coin.i}, ${coin.j}):${coin.serial}, `;
+  });
+  return output;
+}
 
 let serialNumber = 0;
 
@@ -101,10 +108,10 @@ function makePit(i: number, j: number) {
 
       container.innerHTML += `
                 <div>There is a pit here at "${i},${j}". It has <span id="value">${value}</span> coins.</div>`;
-      // container.innerHTML += `<button id="collect">collect</button> <button id="deposit">deposit</button>`;
 
       coins.forEach((coin) => {
         const coinButton = document.createElement("button");
+        coinButton.style.backgroundColor = "orange";
         coinButton.innerHTML = `Coin (${coin.i}, ${coin.j}):${coin.serial}`;
         coinList.append(coinButton);
 
@@ -113,10 +120,8 @@ function makePit(i: number, j: number) {
           container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
             value.toString();
 
-          points++;
-          statusPanel.innerHTML = `${points} coins accumulated`;
-
           playerCoins.push(coin);
+          statusPanel.innerHTML = formatCoins();
 
           coinButton.remove();
 
@@ -128,44 +133,22 @@ function makePit(i: number, j: number) {
       });
       container.append(coinList);
 
+      // FIXME: depositing coins does not immediately refresh coinList (visual bug)
       const depositButton = document.createElement("button");
       depositButton.innerHTML = "Deposit Coin";
+      depositButton.style.backgroundColor = "blue";
       depositButton.addEventListener("click", () => {
-        if (points > 0) {
+        if (playerCoins.length > 0) {
           value++;
           container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
             value.toString();
 
-          points--;
-          statusPanel.innerHTML = `${points} coins accumulated`;
-
           const coin = playerCoins.pop()!;
+          statusPanel.innerHTML = formatCoins();
           coins.push(coin);
         }
       });
       container.append(depositButton);
-
-      // const collect = container.querySelector<HTMLButtonElement>("#collect")!;
-      // collect.addEventListener("click", () => {
-      //   if (value > 0) {
-      //     value--;
-      //     points++;
-      //   }
-      //   container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-      //     value.toString();
-      //   statusPanel.innerHTML = `${points} points accumulated`;
-      // });
-
-      // const deposit = container.querySelector<HTMLButtonElement>("#deposit")!;
-      // deposit.addEventListener("click", () => {
-      //   if (points > 0) {
-      //     value++;
-      //     points--;
-      //   }
-      //   container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-      //     value.toString();
-      //   statusPanel.innerHTML = `${points} coins accumulated`;
-      // });
       return container;
     },
     { closeOnClick: false }
