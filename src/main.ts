@@ -5,6 +5,7 @@ import luck from "./luck";
 import "./leafletWorkaround";
 import { Board } from "./board.ts";
 import { Coin } from "./coin.ts";
+import { Geocache } from "./geocache.ts";
 
 // Constants
 const NULL_ISLAND = {
@@ -85,7 +86,7 @@ eastButton.addEventListener("click", () => {
 
 // Status panel
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
-statusPanel.innerHTML = "No coins yet...";
+statusPanel.innerHTML = "No coins collected.";
 
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 
@@ -173,22 +174,34 @@ function makePit(i: number, j: number) {
 
   pit.addTo(map);
 }
-
+const caches = new Map();
 updateBoard();
 
 // update board (with cells)
-// FIXME: new pits are always created, even if pit already exists
 function updateBoard() {
   const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
   nearbyCells.forEach((cell) => {
-    if (luck([cell.i, cell.j].toString()) < PIT_SPAWN_PROBABILITY) {
+    if (
+      !caches.has(`${cell.i},${cell.j}`) &&
+      luck([cell.i, cell.j].toString()) < PIT_SPAWN_PROBABILITY
+    ) {
       makePit(cell.i, cell.j);
     }
   });
+  saveCaches();
 
   playerMarker.setTooltipContent(
-    `Current Position: ${playerMarker.getLatLng().lat}, ${
-      playerMarker.getLatLng().lng
-    }`
+    `Current Position: ${playerMarker
+      .getLatLng()
+      .lat.toFixed(4)}, ${playerMarker.getLatLng().lng.toFixed(4)}`
   );
+}
+
+// KEYS should be formatted "i,j"
+function saveCaches() {
+  const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
+  nearbyCells.forEach((cell) => {
+    const cache = new Geocache(cell.i, cell.j, []);
+    caches.set(`${cell.i},${cell.j}`, cache.toMomento());
+  });
 }
