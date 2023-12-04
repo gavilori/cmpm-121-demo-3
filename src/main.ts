@@ -7,18 +7,23 @@ import { Board } from "./board.ts";
 import { Coin } from "./coin.ts";
 import { Geocache } from "./geocache.ts";
 
-// Constants
+// Constants ------------------------------------------------------------
 const NULL_ISLAND = {
   lat: 0,
   lng: 0,
 };
+
+// const MERRILL_CLASSROOM = {
+//   lat: 36.9995,
+//   lng: -122.0533,
+// };
 
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
 const NEIGHBORHOOD_SIZE = 5;
 const PIT_SPAWN_PROBABILITY = 0.1;
 
-// Map Creation
+// Map Creation ------------------------------------------------------------
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
 const STARTING_LOCATION = NULL_ISLAND;
@@ -44,7 +49,7 @@ const playerMarker = leaflet.marker(leaflet.latLng(STARTING_LOCATION));
 playerMarker.bindTooltip("Current Position: ");
 playerMarker.addTo(map);
 
-// Navigation Buttons
+// Navigation Buttons ------------------------------------------------------------
 const sensorButton = document.querySelector("#sensor")!;
 sensorButton.addEventListener("click", () => {
   navigator.geolocation.watchPosition((position) => {
@@ -55,13 +60,13 @@ sensorButton.addEventListener("click", () => {
   });
 });
 
-const northButton = document.querySelector("#north")!;
 function movePlayer(moveLat: number, moveLng: number) {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat + moveLat, lng + moveLng));
-
   map.setView(playerMarker.getLatLng());
 }
+
+const northButton = document.querySelector("#north")!;
 northButton.addEventListener("click", () => {
   clearBoard();
   movePlayer(TILE_DEGREES, 0);
@@ -86,13 +91,9 @@ eastButton.addEventListener("click", () => {
   updateBoard();
 });
 
-// Status panel
+// Status panel ------------------------------------------------------------
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins collected.";
-
-const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
-
-const playerCoins: Coin[] = [];
 
 function formatPlayerCoins(): void {
   let output = "";
@@ -102,21 +103,32 @@ function formatPlayerCoins(): void {
   statusPanel.innerHTML = output;
 }
 
+// Pit Creation ------------------------------------------------------------
+const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
+const caches = new Map<string, string>();
+const playerCoins: Coin[] = [];
+const mapPits: leaflet.Layer[] = [];
+
 let serialNumber = 0;
-const bus = new EventTarget();
 
 function makePit(i: number, j: number) {
   const bounds = board.getCellBounds({ i: i, j: j });
-
   const pit = leaflet.rectangle(bounds) as leaflet.Layer;
 
-  let value = Math.floor(luck([i, j, "initialValue"].toString()) * 10);
-  const coins: Coin[] = [];
+  let coins: Coin[] = [];
 
-  for (let x = 0; x < value; x++) {
-    const newCoin = new Coin(i, j, serialNumber);
-    coins.push(newCoin);
-    serialNumber += 1;
+  if (caches.has(`${i},${j}`)) {
+    const momento = caches.get(`${i},${j}`);
+    const buffer = new Geocache(0, 0, []);
+    buffer.fromMomento(momento!);
+    coins = buffer.coins;
+  } else {
+    const numCoins = Math.floor(luck([i, j, "initialValue"].toString()) * 10);
+    for (let x = 0; x < numCoins; x++) {
+      const newCoin = new Coin(i, j, serialNumber);
+      coins.push(newCoin);
+      serialNumber += 1;
+    }
   }
 
   pit.bindPopup(
@@ -127,28 +139,30 @@ function makePit(i: number, j: number) {
 
       coinList.style.overflowY = "scroll";
       coinList.style.height = "200px";
+      coinList.style.width = "250px";
 
-      container.innerHTML = `<div>Pit (${i},${j})<br>Currently has <span id="value">${value}</span> coins.</div>`;
+      container.innerHTML = `<div>Pit (${i},${j})</div>`;
 
       function createCoinButton(coin: Coin) {
         const coinButton = document.createElement("button");
-        coinButton.style.backgroundColor = "orange";
+        coinButton.style.backgroundColor = "#c99158";
         coinButton.innerHTML = `Coin (${coin.i}, ${coin.j}):${coin.serial}`;
         coinButton.addEventListener("click", () => {
-          value--;
-          container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-            value.toString();
-
           playerCoins.push(coin);
           formatPlayerCoins();
 
           coinButton.remove();
 
+          // remove coin from local coins list
           const index = coins.indexOf(coin);
           if (index > -1) {
             coins.splice(index, 1);
           }
+
+          saveCache(coin.i, coin.j, coins);
+          console.log(caches.get(`${coin.i},${coin.j}`));
         });
+
         return coinButton;
       }
 
@@ -157,85 +171,60 @@ function makePit(i: number, j: number) {
       });
       container.append(coinList);
 
-      // FIXME: depositing coins does not immediately refresh coinList (visual bug)
       const depositButton = document.createElement("button");
       depositButton.innerHTML = "Deposit Coin";
-      depositButton.style.backgroundColor = "blue";
+      depositButton.style.backgroundColor = "#5fa7d6";
       depositButton.addEventListener("click", () => {
         if (playerCoins.length > 0) {
-          value++;
-          container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-            value.toString();
-
           const coin = playerCoins.pop()!;
           formatPlayerCoins();
           coins.push(coin);
 
           coinList.append(createCoinButton(coin));
+          saveCache(i, j, coins);
         }
       });
       container.append(depositButton);
+
+      saveCache(i, j, coins);
       return container;
     },
     { closeOnClick: false }
   );
 
-  bus.addEventListener(`destroy${i},${j}`, () => {
-    map.removeLayer(pit);
-  });
-
-  bus.addEventListener(`restore${i},${j}`, () => {
-    map.addLayer(pit);
-  });
-
+  mapPits.push(pit);
   pit.addTo(map);
 }
-const caches = new Map();
+
 updateBoard();
 
+// clear board
 function clearBoard() {
-  saveCaches();
-  const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
-  nearbyCells.forEach((cell) => {
-    const { i, j } = cell;
-
-    const hasPit = luck([i, j].toString()) < PIT_SPAWN_PROBABILITY;
-
-    if (hasPit) {
-      bus.dispatchEvent(new Event(`destroy${i},${j}`));
-    }
+  mapPits.forEach((layer) => {
+    layer.remove();
   });
 }
 
-// update board (with cells)
+// update board (with cells) ------------------------------------------------------------
 function updateBoard() {
   const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
   nearbyCells.forEach((cell) => {
     const { i, j } = cell;
-
-    const hasPit = luck([i, j].toString()) < PIT_SPAWN_PROBABILITY;
-    const hasCache = caches.has(`${i},${j}`);
-
-    if (hasPit && hasCache) {
-      bus.dispatchEvent(new Event(`restore${i},${j}`));
-    } else if (hasPit) {
+    if (luck([i, j].toString()) < PIT_SPAWN_PROBABILITY) {
       makePit(i, j);
-      console.log("created pit");
     }
   });
 
+  const playerLat = playerMarker.getLatLng().lat / TILE_DEGREES;
+  const playerLng = playerMarker.getLatLng().lng / TILE_DEGREES;
+
   playerMarker.setTooltipContent(
-    `Current Position: ${playerMarker
-      .getLatLng()
-      .lat.toFixed(4)}, ${playerMarker.getLatLng().lng.toFixed(4)}`
+    `Current Position: ${playerLat.toFixed(0)}, ${playerLng.toFixed(0)}`
   );
 }
 
 // KEYS should be formatted "i,j"
-function saveCaches() {
-  const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
-  nearbyCells.forEach((cell) => {
-    const cache = new Geocache(cell.i, cell.j, []);
-    caches.set(`${cell.i},${cell.j}`, cache.toMomento());
-  });
+function saveCache(i: number, j: number, coins: Coin[]) {
+  const cache = new Geocache(i, j, coins);
+  caches.set(`${i},${j}`, cache.toMomento());
 }
