@@ -52,12 +52,14 @@ playerMarker.addTo(map);
 // Navigation Buttons ------------------------------------------------------------
 const sensorButton = document.querySelector("#sensor")!;
 sensorButton.addEventListener("click", () => {
+  clearBoard();
   navigator.geolocation.watchPosition((position) => {
     playerMarker.setLatLng(
       leaflet.latLng(position.coords.latitude, position.coords.longitude)
     );
     map.setView(playerMarker.getLatLng());
   });
+  updateBoard();
 });
 
 function movePlayer(moveLat: number, moveLng: number) {
@@ -91,7 +93,19 @@ eastButton.addEventListener("click", () => {
   updateBoard();
 });
 
-// Status panel ------------------------------------------------------------
+const resetButton = document.querySelector("#reset")!;
+resetButton.addEventListener("click", () => {
+  const check = prompt("Are you sure you want to reset ALL data? (Y/N)", "Y");
+  if (check?.toLowerCase() === "y") {
+    // FIXME: reset entire game state
+    alert("Game was successfully reset.");
+  } else {
+    // do nothing
+    console.log("Game not reset");
+  }
+});
+
+// Status Panel ------------------------------------------------------------
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins collected.";
 
@@ -118,8 +132,8 @@ function makePit(i: number, j: number) {
   let coins: Coin[] = [];
 
   if (caches.has(`${i},${j}`)) {
-    const momento = caches.get(`${i},${j}`);
     const buffer = new Geocache(0, 0, []);
+    const momento = caches.get(`${i},${j}`);
     buffer.fromMomento(momento!);
     coins = buffer.coins;
   } else {
@@ -127,6 +141,7 @@ function makePit(i: number, j: number) {
     for (let x = 0; x < numCoins; x++) {
       const newCoin = new Coin(i, j, serialNumber);
       coins.push(newCoin);
+
       serialNumber += 1;
     }
   }
@@ -160,7 +175,6 @@ function makePit(i: number, j: number) {
           }
 
           saveCache(coin.i, coin.j, coins);
-          console.log(caches.get(`${coin.i},${coin.j}`));
         });
 
         return coinButton;
@@ -196,16 +210,13 @@ function makePit(i: number, j: number) {
   pit.addTo(map);
 }
 
-updateBoard();
-
-// clear board
+// Clear & Update Board ------------------------------------------------------------
 function clearBoard() {
   mapPits.forEach((layer) => {
     layer.remove();
   });
 }
 
-// update board (with cells) ------------------------------------------------------------
 function updateBoard() {
   const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
   nearbyCells.forEach((cell) => {
@@ -223,8 +234,19 @@ function updateBoard() {
   );
 }
 
+// Geocache Map ------------------------------------------------------------
 // KEYS should be formatted "i,j"
 function saveCache(i: number, j: number, coins: Coin[]) {
   const cache = new Geocache(i, j, coins);
   caches.set(`${i},${j}`, cache.toMomento());
 }
+
+// Main ------------------------------------------------------------
+function tick() {
+  clearBoard();
+  updateBoard();
+  console.log("tick");
+  setTimeout(tick, 5000);
+}
+
+tick();
