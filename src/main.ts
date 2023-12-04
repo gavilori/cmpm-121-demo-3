@@ -56,31 +56,33 @@ sensorButton.addEventListener("click", () => {
 });
 
 const northButton = document.querySelector("#north")!;
-northButton.addEventListener("click", () => {
+function movePlayer(moveLat: number, moveLng: number) {
   const { lat, lng } = playerMarker.getLatLng();
-  playerMarker.setLatLng(leaflet.latLng(lat + TILE_DEGREES, lng));
+  playerMarker.setLatLng(leaflet.latLng(lat + moveLat, lng + moveLng));
+
   map.setView(playerMarker.getLatLng());
+}
+northButton.addEventListener("click", () => {
+  clearBoard();
+  movePlayer(TILE_DEGREES, 0);
   updateBoard();
 });
 const southButton = document.querySelector("#south")!;
 southButton.addEventListener("click", () => {
-  const { lat, lng } = playerMarker.getLatLng();
-  playerMarker.setLatLng(leaflet.latLng(lat - TILE_DEGREES, lng));
-  map.setView(playerMarker.getLatLng());
+  clearBoard();
+  movePlayer(-TILE_DEGREES, 0);
   updateBoard();
 });
 const westButton = document.querySelector("#west")!;
 westButton.addEventListener("click", () => {
-  const { lat, lng } = playerMarker.getLatLng();
-  playerMarker.setLatLng(leaflet.latLng(lat, lng - TILE_DEGREES));
-  map.setView(playerMarker.getLatLng());
+  clearBoard();
+  movePlayer(0, -TILE_DEGREES);
   updateBoard();
 });
 const eastButton = document.querySelector("#east")!;
 eastButton.addEventListener("click", () => {
-  const { lat, lng } = playerMarker.getLatLng();
-  playerMarker.setLatLng(leaflet.latLng(lat, lng + TILE_DEGREES));
-  map.setView(playerMarker.getLatLng());
+  clearBoard();
+  movePlayer(0, TILE_DEGREES);
   updateBoard();
 });
 
@@ -101,6 +103,7 @@ function formatPlayerCoins(): void {
 }
 
 let serialNumber = 0;
+const bus = new EventTarget();
 
 function makePit(i: number, j: number) {
   const bounds = board.getCellBounds({ i: i, j: j });
@@ -127,12 +130,10 @@ function makePit(i: number, j: number) {
 
       container.innerHTML = `<div>Pit (${i},${j})<br>Currently has <span id="value">${value}</span> coins.</div>`;
 
-      coins.forEach((coin) => {
+      function createCoinButton(coin: Coin) {
         const coinButton = document.createElement("button");
         coinButton.style.backgroundColor = "orange";
         coinButton.innerHTML = `Coin (${coin.i}, ${coin.j}):${coin.serial}`;
-        coinList.append(coinButton);
-
         coinButton.addEventListener("click", () => {
           value--;
           container.querySelector<HTMLSpanElement>("#value")!.innerHTML =
@@ -148,6 +149,11 @@ function makePit(i: number, j: number) {
             coins.splice(index, 1);
           }
         });
+        return coinButton;
+      }
+
+      coins.forEach((coin) => {
+        coinList.append(createCoinButton(coin));
       });
       container.append(coinList);
 
@@ -164,6 +170,8 @@ function makePit(i: number, j: number) {
           const coin = playerCoins.pop()!;
           formatPlayerCoins();
           coins.push(coin);
+
+          coinList.append(createCoinButton(coin));
         }
       });
       container.append(depositButton);
@@ -172,23 +180,49 @@ function makePit(i: number, j: number) {
     { closeOnClick: false }
   );
 
+  bus.addEventListener(`destroy${i},${j}`, () => {
+    map.removeLayer(pit);
+  });
+
+  bus.addEventListener(`restore${i},${j}`, () => {
+    map.addLayer(pit);
+  });
+
   pit.addTo(map);
 }
 const caches = new Map();
 updateBoard();
 
+function clearBoard() {
+  saveCaches();
+  const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
+  nearbyCells.forEach((cell) => {
+    const { i, j } = cell;
+
+    const hasPit = luck([i, j].toString()) < PIT_SPAWN_PROBABILITY;
+
+    if (hasPit) {
+      bus.dispatchEvent(new Event(`destroy${i},${j}`));
+    }
+  });
+}
+
 // update board (with cells)
 function updateBoard() {
   const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
   nearbyCells.forEach((cell) => {
-    if (
-      !caches.has(`${cell.i},${cell.j}`) &&
-      luck([cell.i, cell.j].toString()) < PIT_SPAWN_PROBABILITY
-    ) {
-      makePit(cell.i, cell.j);
+    const { i, j } = cell;
+
+    const hasPit = luck([i, j].toString()) < PIT_SPAWN_PROBABILITY;
+    const hasCache = caches.has(`${i},${j}`);
+
+    if (hasPit && hasCache) {
+      bus.dispatchEvent(new Event(`restore${i},${j}`));
+    } else if (hasPit) {
+      makePit(i, j);
+      console.log("created pit");
     }
   });
-  saveCaches();
 
   playerMarker.setTooltipContent(
     `Current Position: ${playerMarker
