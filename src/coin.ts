@@ -12,4 +12,8 @@ export class Coin {
   toString(): string {
     return `coin (${this.i},${this.j}):${this.serial}`;
   }
+
+  toJson(): string {
+    return JSON.stringify(this);
+  }
 }

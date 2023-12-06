@@ -49,6 +49,17 @@ const playerMarker = leaflet.marker(leaflet.latLng(STARTING_LOCATION));
 playerMarker.bindTooltip("Current Position: ");
 playerMarker.addTo(map);
 
+// Game Start ------------------------------------------------------------
+const playerCoins: Coin[] = [];
+
+function startGame() {
+  if (!localStorage.getItem("playerCoins")) {
+    statusPanel.innerHTML = "No coins collected.";
+  } else {
+    formatPlayerCoins();
+  }
+}
+
 // Navigation Buttons ------------------------------------------------------------
 const sensorButton = document.querySelector("#sensor")!;
 sensorButton.addEventListener("click", () => {
@@ -61,12 +72,6 @@ sensorButton.addEventListener("click", () => {
   });
   updateBoard();
 });
-
-function movePlayer(moveLat: number, moveLng: number) {
-  const { lat, lng } = playerMarker.getLatLng();
-  playerMarker.setLatLng(leaflet.latLng(lat + moveLat, lng + moveLng));
-  map.setView(playerMarker.getLatLng());
-}
 
 const northButton = document.querySelector("#north")!;
 northButton.addEventListener("click", () => {
@@ -95,19 +100,24 @@ eastButton.addEventListener("click", () => {
 
 const resetButton = document.querySelector("#reset")!;
 resetButton.addEventListener("click", () => {
-  const check = prompt("Are you sure you want to reset ALL data? (Y/N)", "Y");
-  if (check?.toLowerCase() === "y") {
-    // FIXME: reset entire game state
+  const check = confirm("Are you sure you want to reset ALL data?");
+  if (check) {
+    resetGame();
     alert("Game was successfully reset.");
   } else {
-    // do nothing
-    console.log("Game not reset");
+    alert("Game was not reset.");
   }
 });
 
+// Helper Functions ------------------------------------------------------------
+function movePlayer(moveLat: number, moveLng: number) {
+  const { lat, lng } = playerMarker.getLatLng();
+  playerMarker.setLatLng(leaflet.latLng(lat + moveLat, lng + moveLng));
+  map.setView(playerMarker.getLatLng());
+}
+
 // Status Panel ------------------------------------------------------------
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
-statusPanel.innerHTML = "No coins collected.";
 
 function formatPlayerCoins(): void {
   let output = "";
@@ -119,8 +129,6 @@ function formatPlayerCoins(): void {
 
 // Pit Creation ------------------------------------------------------------
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
-const caches = new Map<string, string>();
-const playerCoins: Coin[] = [];
 const mapPits: leaflet.Layer[] = [];
 
 let serialNumber = 0;
@@ -131,9 +139,9 @@ function makePit(i: number, j: number) {
 
   let coins: Coin[] = [];
 
-  if (caches.has(`${i},${j}`)) {
+  if (localStorage.getItem(`${i},${j}`)) {
     const buffer = new Geocache(0, 0, []);
-    const momento = caches.get(`${i},${j}`);
+    const momento = localStorage.getItem(`${i},${j}`);
     buffer.fromMomento(momento!);
     coins = buffer.coins;
   } else {
@@ -165,6 +173,11 @@ function makePit(i: number, j: number) {
         coinButton.addEventListener("click", () => {
           playerCoins.push(coin);
           formatPlayerCoins();
+          let playerCoinsMomento = "";
+          playerCoins.forEach((coin) => {
+            playerCoinsMomento += coin.toJson();
+          });
+          localStorage.setItem("playerStorage", playerCoinsMomento);
 
           coinButton.remove();
 
@@ -238,15 +251,21 @@ function updateBoard() {
 // KEYS should be formatted "i,j"
 function saveCache(i: number, j: number, coins: Coin[]) {
   const cache = new Geocache(i, j, coins);
-  caches.set(`${i},${j}`, cache.toMomento());
+  localStorage.setItem(`${i},${j}`, cache.toMomento());
+}
+
+// Reset Game ------------------------------------------------------------
+function resetGame() {
+  serialNumber = 0;
+  localStorage.clear();
+
+  clearBoard();
+  playerMarker.setLatLng(leaflet.latLng(STARTING_LOCATION));
+  map.setView(playerMarker.getLatLng());
+
+  updateBoard();
 }
 
 // Main ------------------------------------------------------------
-function tick() {
-  clearBoard();
-  updateBoard();
-  console.log("tick");
-  setTimeout(tick, 5000);
-}
-
-tick();
+startGame();
+updateBoard();
