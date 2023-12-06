@@ -24,6 +24,7 @@ const NEIGHBORHOOD_SIZE = 5;
 const PIT_SPAWN_PROBABILITY = 0.1;
 
 // Map Creation ------------------------------------------------------------
+
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
 const STARTING_LOCATION = NULL_ISLAND;
@@ -50,25 +51,20 @@ playerMarker.bindTooltip("Current Position: ");
 playerMarker.addTo(map);
 
 // Game Start ------------------------------------------------------------
-const playerCoins: Coin[] = [];
+let playerCoins: Coin[] = [];
 let serialNumber = 0;
 
 function startGame() {
-  clearBoard();
+  // clearBoard();
   const playerCoinsMomento = localStorage.getItem("playerCoins");
-  if (!playerCoinsMomento) {
+  if (playerCoinsMomento === "[]" || !playerCoinsMomento) {
     statusPanel.innerHTML = "No coins collected.";
   } else {
     console.log(playerCoinsMomento);
-    const serializedCoins: string[] = JSON.parse(
-      playerCoinsMomento
-    ) as string[];
-    const coinsArray = serializedCoins.map(
-      (coinData) => JSON.parse(coinData) as Coin
+    const coinArray = JSON.parse(playerCoinsMomento) as Coin[];
+    playerCoins = coinArray.map(
+      (coinData) => new Coin(coinData.i, coinData.j, coinData.serial)
     );
-    coinsArray.forEach((coin) => {
-      playerCoins.push(coin);
-    });
     formatPlayerCoins();
   }
 
@@ -78,6 +74,7 @@ function startGame() {
   } else {
     serialNumber = 0;
   }
+  console.log(serialNumber);
 }
 
 // Navigation Buttons ------------------------------------------------------------
@@ -194,10 +191,8 @@ function makePit(i: number, j: number) {
           formatPlayerCoins();
 
           // FIXME: toMomento() is "not a function"
-          const serializedCoins = playerCoins.map((coin: Coin) =>
-            coin.toMomento()
-          );
-          localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
+          // const serializedCoins = playerCoins.map((coin) => coin.toMomento());
+          // localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
 
           coinButton.remove();
 
@@ -223,15 +218,16 @@ function makePit(i: number, j: number) {
       depositButton.style.backgroundColor = "#5fa7d6";
       depositButton.addEventListener("click", () => {
         if (playerCoins.length > 0) {
-          const coin = playerCoins.pop()!;
+          const depositCoin = playerCoins.pop()!;
           formatPlayerCoins();
-          coins.push(coin);
+          coins.push(depositCoin);
 
-          coinList.append(createCoinButton(coin));
+          coinList.append(createCoinButton(depositCoin));
           saveCache(i, j, coins);
 
-          const serializedCoins = playerCoins.map((coin) => coin.toMomento());
-          localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
+          // FIXME: toMomento() is "not a function"
+          // const serializedCoins = playerCoins.map((c) => c.toMomento());
+          // localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
         }
       });
       container.append(depositButton);
@@ -275,6 +271,8 @@ function updateBoard() {
 function saveCache(i: number, j: number, coins: Coin[]) {
   const cache = new Geocache(i, j, coins);
   localStorage.setItem(`${i},${j}`, cache.toMomento());
+
+  localStorage.setItem("playerCoins", JSON.stringify(playerCoins));
 }
 
 // Reset Game ------------------------------------------------------------
