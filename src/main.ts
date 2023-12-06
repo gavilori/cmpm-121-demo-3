@@ -50,17 +50,24 @@ const playerMarker = leaflet.marker(leaflet.latLng(STARTING_LOCATION));
 playerMarker.bindTooltip("Current Position: ");
 playerMarker.addTo(map);
 
+const playerPolyline = leaflet
+  .polyline([playerMarker.getLatLng()], { color: "red" })
+  .addTo(map);
+
+playerMarker.addEventListener("move", () => {
+  updateBoard();
+});
+
 // Game Start ------------------------------------------------------------
 let playerCoins: Coin[] = [];
 let serialNumber = 0;
 
 function startGame() {
-  // clearBoard();
+  // checks localStorage for playerCoins
   const playerCoinsMomento = localStorage.getItem("playerCoins");
   if (playerCoinsMomento === "[]" || !playerCoinsMomento) {
     statusPanel.innerHTML = "No coins collected.";
   } else {
-    console.log(playerCoinsMomento);
     const coinArray = JSON.parse(playerCoinsMomento) as Coin[];
     playerCoins = coinArray.map(
       (coinData) => new Coin(coinData.i, coinData.j, coinData.serial)
@@ -68,51 +75,41 @@ function startGame() {
     formatPlayerCoins();
   }
 
+  // checks localStorage for serial number assignment
   const serialNumberString = localStorage.getItem("serialNumber");
   if (serialNumberString) {
     serialNumber = parseInt(serialNumberString);
   } else {
     serialNumber = 0;
   }
-  console.log(serialNumber);
 }
 
 // Navigation Buttons ------------------------------------------------------------
 const sensorButton = document.querySelector("#sensor")!;
 sensorButton.addEventListener("click", () => {
-  clearBoard();
   navigator.geolocation.watchPosition((position) => {
     playerMarker.setLatLng(
       leaflet.latLng(position.coords.latitude, position.coords.longitude)
     );
     map.setView(playerMarker.getLatLng());
   });
-  updateBoard();
 });
 
 const northButton = document.querySelector("#north")!;
 northButton.addEventListener("click", () => {
-  clearBoard();
   movePlayer(TILE_DEGREES, 0);
-  updateBoard();
 });
 const southButton = document.querySelector("#south")!;
 southButton.addEventListener("click", () => {
-  clearBoard();
   movePlayer(-TILE_DEGREES, 0);
-  updateBoard();
 });
 const westButton = document.querySelector("#west")!;
 westButton.addEventListener("click", () => {
-  clearBoard();
   movePlayer(0, -TILE_DEGREES);
-  updateBoard();
 });
 const eastButton = document.querySelector("#east")!;
 eastButton.addEventListener("click", () => {
-  clearBoard();
   movePlayer(0, TILE_DEGREES);
-  updateBoard();
 });
 
 const resetButton = document.querySelector("#reset")!;
@@ -131,6 +128,9 @@ function movePlayer(moveLat: number, moveLng: number) {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat + moveLat, lng + moveLng));
   map.setView(playerMarker.getLatLng());
+
+  playerPolyline.addLatLng(playerMarker.getLatLng());
+  playerPolyline.redraw();
 }
 
 // Status Panel ------------------------------------------------------------
@@ -190,10 +190,6 @@ function makePit(i: number, j: number) {
           playerCoins.push(c);
           formatPlayerCoins();
 
-          // FIXME: toMomento() is "not a function"
-          // const serializedCoins = playerCoins.map((coin) => coin.toMomento());
-          // localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
-
           coinButton.remove();
 
           // remove c from local coins list
@@ -224,10 +220,6 @@ function makePit(i: number, j: number) {
 
           coinList.append(createCoinButton(depositCoin));
           saveCache(i, j, coins);
-
-          // FIXME: toMomento() is "not a function"
-          // const serializedCoins = playerCoins.map((c) => c.toMomento());
-          // localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
         }
       });
       container.append(depositButton);
@@ -250,6 +242,7 @@ function clearBoard() {
 }
 
 function updateBoard() {
+  clearBoard();
   const nearbyCells = board.getCellsNearPoint(playerMarker.getLatLng());
   nearbyCells.forEach((cell) => {
     const { i, j } = cell;
@@ -280,9 +273,9 @@ function resetGame() {
   serialNumber = 0;
   localStorage.clear();
 
-  clearBoard();
-  playerMarker.setLatLng(leaflet.latLng(STARTING_LOCATION));
-  map.setView(playerMarker.getLatLng());
+  // playerMarker.setLatLng(leaflet.latLng(STARTING_LOCATION));
+  // map.setView(playerMarker.getLatLng());
+  playerPolyline.setLatLngs([]);
 
   startGame();
   updateBoard();
