@@ -51,12 +51,32 @@ playerMarker.addTo(map);
 
 // Game Start ------------------------------------------------------------
 const playerCoins: Coin[] = [];
+let serialNumber = 0;
 
 function startGame() {
-  if (!localStorage.getItem("playerCoins")) {
+  clearBoard();
+  const playerCoinsMomento = localStorage.getItem("playerCoins");
+  if (!playerCoinsMomento) {
     statusPanel.innerHTML = "No coins collected.";
   } else {
+    console.log(playerCoinsMomento);
+    const serializedCoins: string[] = JSON.parse(
+      playerCoinsMomento
+    ) as string[];
+    const coinsArray = serializedCoins.map(
+      (coinData) => JSON.parse(coinData) as Coin
+    );
+    coinsArray.forEach((coin) => {
+      playerCoins.push(coin);
+    });
     formatPlayerCoins();
+  }
+
+  const serialNumberString = localStorage.getItem("serialNumber");
+  if (serialNumberString) {
+    serialNumber = parseInt(serialNumberString);
+  } else {
+    serialNumber = 0;
   }
 }
 
@@ -131,8 +151,6 @@ function formatPlayerCoins(): void {
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 const mapPits: leaflet.Layer[] = [];
 
-let serialNumber = 0;
-
 function makePit(i: number, j: number) {
   const bounds = board.getCellBounds({ i: i, j: j });
   const pit = leaflet.rectangle(bounds) as leaflet.Layer;
@@ -151,6 +169,7 @@ function makePit(i: number, j: number) {
       coins.push(newCoin);
 
       serialNumber += 1;
+      localStorage.setItem("serialNumber", serialNumber.toString());
     }
   }
 
@@ -166,28 +185,29 @@ function makePit(i: number, j: number) {
 
       container.innerHTML = `<div>Pit (${i},${j})</div>`;
 
-      function createCoinButton(coin: Coin) {
+      function createCoinButton(c: Coin) {
         const coinButton = document.createElement("button");
         coinButton.style.backgroundColor = "#c99158";
-        coinButton.innerHTML = `Coin (${coin.i}, ${coin.j}):${coin.serial}`;
+        coinButton.innerHTML = `Coin (${c.i}, ${c.j}):${c.serial}`;
         coinButton.addEventListener("click", () => {
-          playerCoins.push(coin);
+          playerCoins.push(c);
           formatPlayerCoins();
-          let playerCoinsMomento = "";
-          playerCoins.forEach((coin) => {
-            playerCoinsMomento += coin.toJson();
-          });
-          localStorage.setItem("playerStorage", playerCoinsMomento);
+
+          // FIXME: toMomento() is "not a function"
+          const serializedCoins = playerCoins.map((coin: Coin) =>
+            coin.toMomento()
+          );
+          localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
 
           coinButton.remove();
 
-          // remove coin from local coins list
-          const index = coins.indexOf(coin);
+          // remove c from local coins list
+          const index = coins.indexOf(c);
           if (index > -1) {
             coins.splice(index, 1);
           }
 
-          saveCache(coin.i, coin.j, coins);
+          saveCache(c.i, c.j, coins);
         });
 
         return coinButton;
@@ -209,6 +229,9 @@ function makePit(i: number, j: number) {
 
           coinList.append(createCoinButton(coin));
           saveCache(i, j, coins);
+
+          const serializedCoins = playerCoins.map((coin) => coin.toMomento());
+          localStorage.setItem("playerCoins", JSON.stringify(serializedCoins));
         }
       });
       container.append(depositButton);
@@ -263,6 +286,7 @@ function resetGame() {
   playerMarker.setLatLng(leaflet.latLng(STARTING_LOCATION));
   map.setView(playerMarker.getLatLng());
 
+  startGame();
   updateBoard();
 }
 

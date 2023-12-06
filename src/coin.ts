@@ -13,7 +13,14 @@ export class Coin {
     return `coin (${this.i},${this.j}):${this.serial}`;
   }
 
-  toJson(): string {
+  toMomento(): string {
     return JSON.stringify(this);
+  }
+
+  fromMomento(momento: string): void {
+    const obj = JSON.parse(momento) as Coin;
+    this.i = obj.i;
+    this.j = obj.j;
+    this.serial = obj.serial;
   }
 }

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Coin } from "./coin";
 
 interface Momento<T> {
@@ -22,7 +20,7 @@ export class Geocache implements Momento<string> {
     return JSON.stringify(this);
   }
   fromMomento(momento: string): void {
-    const obj = JSON.parse(momento);
+    const obj = JSON.parse(momento) as Geocache;
     this.i = obj.i;
     this.j = obj.j;
     this.coins = obj.coins;
