@@ -8,15 +8,15 @@ import { Coin } from "./coin.ts";
 import { Geocache } from "./geocache.ts";
 
 // Constants ------------------------------------------------------------
-const NULL_ISLAND = {
-  lat: 0,
-  lng: 0,
-};
-
-// const MERRILL_CLASSROOM = {
-//   lat: 36.9995,
-//   lng: -122.0533,
+// const NULL_ISLAND = {
+//   lat: 0,
+//   lng: 0,
 // };
+
+const MERRILL_CLASSROOM = {
+  lat: 36.9995,
+  lng: -122.0533,
+};
 
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
@@ -27,7 +27,7 @@ const PIT_SPAWN_PROBABILITY = 0.1;
 
 const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
-const STARTING_LOCATION = NULL_ISLAND;
+const STARTING_LOCATION = MERRILL_CLASSROOM;
 
 const map = leaflet.map(mapContainer, {
   center: leaflet.latLng(STARTING_LOCATION),
@@ -128,9 +128,6 @@ function movePlayer(moveLat: number, moveLng: number) {
   const { lat, lng } = playerMarker.getLatLng();
   playerMarker.setLatLng(leaflet.latLng(lat + moveLat, lng + moveLng));
   map.setView(playerMarker.getLatLng());
-
-  playerPolyline.addLatLng(playerMarker.getLatLng());
-  playerPolyline.redraw();
 }
 
 // Status Panel ------------------------------------------------------------
@@ -251,6 +248,9 @@ function updateBoard() {
     }
   });
 
+  playerPolyline.addLatLng(playerMarker.getLatLng());
+  playerPolyline.redraw();
+
   const playerLat = playerMarker.getLatLng().lat / TILE_DEGREES;
   const playerLng = playerMarker.getLatLng().lng / TILE_DEGREES;
 
@@ -273,8 +273,6 @@ function resetGame() {
   serialNumber = 0;
   localStorage.clear();
 
-  // playerMarker.setLatLng(leaflet.latLng(STARTING_LOCATION));
-  // map.setView(playerMarker.getLatLng());
   playerPolyline.setLatLngs([]);
 
   startGame();
